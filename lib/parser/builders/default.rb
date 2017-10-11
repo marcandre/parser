@@ -1207,13 +1207,9 @@ module Parser
     def delimited_string_map(string_t)
       str_range = loc(string_t)
 
-      begin_l = Source::Range.new(str_range.source_buffer,
-                                  str_range.begin_pos,
-                                  str_range.begin_pos + 1)
+      begin_l = str_range.with(end_pos: str_range.begin_pos + 1)
 
-      end_l   = Source::Range.new(str_range.source_buffer,
-                                  str_range.end_pos - 1,
-                                  str_range.end_pos)
+      end_l   = str_range.with(begin_pos: str_range.end_pos - 1)
 
       Source::Map::Collection.new(begin_l, end_l,
                                   loc(string_t))
@@ -1222,9 +1218,7 @@ module Parser
     def prefix_string_map(symbol)
       str_range = loc(symbol)
 
-      begin_l = Source::Range.new(str_range.source_buffer,
-                                  str_range.begin_pos,
-                                  str_range.begin_pos + 1)
+      begin_l = str_range.with(end_pos: str_range.begin_pos + 1)
 
       Source::Map::Collection.new(begin_l, nil,
                                   loc(symbol))
@@ -1238,13 +1232,9 @@ module Parser
     def pair_keyword_map(key_t, value_e)
       key_range = loc(key_t)
 
-      key_l   = Source::Range.new(key_range.source_buffer,
-                                  key_range.begin_pos,
-                                  key_range.end_pos - 1)
+      key_l   = key_range.with(end_pos: key_range.end_pos - 1)
 
-      colon_l = Source::Range.new(key_range.source_buffer,
-                                  key_range.end_pos - 1,
-                                  key_range.end_pos)
+      colon_l = key_range.with(begin_pos: key_range.end_pos - 1)
 
       [ # key map
         Source::Map::Collection.new(nil, nil,
@@ -1261,9 +1251,7 @@ module Parser
                                   end_l.end_pos - 2,
                                   end_l.end_pos - 1)
 
-      colon_l = Source::Range.new(end_l.source_buffer,
-                                  end_l.end_pos - 1,
-                                  end_l.end_pos)
+      colon_l = end_l.with(begin_pos: end_l.end_pos - 1)
 
       [ # modified end token
         [ value(end_t), quote_l ],
@@ -1351,9 +1339,7 @@ module Parser
 
     def kwarg_map(name_t, value_e=nil)
       label_range = loc(name_t)
-      name_range  = Source::Range.new(label_range.source_buffer,
-                                      label_range.begin_pos,
-                                      label_range.end_pos - 1)
+      name_range  = label_range.with(end_pos: label_range.end_pos - 1)
 
       if value_e
         expr_l = loc(name_t).join(value_e.loc.expression)

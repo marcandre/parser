@@ -100,6 +100,11 @@ class TestParser < Minitest::Test
       %q{~~ expression})
 
     assert_parses(
+      s(:int, 42),
+      %q{+42},
+      %q{~~~ expression})
+
+    assert_parses(
       s(:int, -42),
       %q{-42},
       %q{^ operator

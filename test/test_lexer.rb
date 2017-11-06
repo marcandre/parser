@@ -185,7 +185,7 @@ class TestLexer < Minitest::Test
   def test_ambiguous_uplus
     assert_scanned("m +3",
                    :tIDENTIFIER, "m", [0, 1],
-                   :tINTEGER,    3,   [3, 4])
+                   :tINTEGER,    3,   [2, 4])
   end
 
   def test_and
@@ -1482,7 +1482,7 @@ class TestLexer < Minitest::Test
 
   def test_plus_unary_number
     assert_scanned("+42",
-                   :tINTEGER, 42, [1, 3])
+                   :tINTEGER, 42, [0, 3])
   end
 
   def test_question__18

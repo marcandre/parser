@@ -68,5 +68,11 @@ module Parser
     # Rewriter diagnostics
     :invalid_action          => 'cannot %{action}',
     :clobbered               => 'clobbered by: %{action}',
+
+    # Rewriter diagnostics
+    :swallowed_insertions    => 'replacement on would swallow some inner rewrites',
+    :different_replacements  => 'different replacements: %{replacement} vs %{other_replacement}',
+    :crossing_deletions      => 'deletions are crossing',
+    :crossing_insertions     => 'insertions are crossing',
   }.freeze
 end

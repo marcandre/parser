@@ -85,6 +85,19 @@ class TestSourceRange < Minitest::Test
     check_relationship(:contained?, @sr5_8.with(end_pos: 7), @sr5_8, :contains?)
   end
 
+  def test_order
+    assert_equal  0, @sr1_3 <=> @sr1_3
+    assert_equal -1, @sr1_3 <=> @sr5_8
+    assert_equal -1, @sr2_2 <=> @sr2_6
+    assert_equal +1, @sr2_6 <=> @sr2_2
+
+    assert_equal -1, @sr1_3 <=> @sr2_6
+
+    assert_equal +1, @sr2_2 <=> @sr1_3
+    assert_equal -1, @sr1_3 <=> @sr2_2
+    assert_equal -1, @sr5_8.with(end_pos: 7) <=> @sr5_8
+  end
+
   def test_empty
     assert !@sr1_3.empty?
     assert @sr2_2.empty?

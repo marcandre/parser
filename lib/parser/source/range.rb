@@ -219,7 +219,8 @@ module Parser
       # @return [Boolean] `true` if this range and `other` do not overlap
       #
       def disjoint?(other)
-        @begin_pos >= other.end_pos || other.begin_pos >= @end_pos
+        (@begin_pos >= other.end_pos || other.begin_pos >= @end_pos) &&
+          (!empty? || !other.empty?)
       end
 
       ##
@@ -227,7 +228,7 @@ module Parser
       # @return [Boolean] `true` if this range and `other` overlap
       #
       def overlaps?(other)
-        @begin_pos < other.end_pos && other.begin_pos < @end_pos
+        !disjoint?(other)
       end
 
       ##

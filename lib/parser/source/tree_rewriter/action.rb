@@ -38,15 +38,15 @@ module Parser
         reps
       end
 
+      def insertion?
+        !insert_before.empty? || !insert_after.empty? || (replacement && !replacement.empty?)
+      end
+
       protected
 
       def with(range: @range, children: @children, insert_before: @insert_before, replacement: @replacement, insert_after: @insert_after)
         children = swallow(children) if replacement
         self.class.new(range, @enforcer, children: children, insert_before: insert_before, replacement: replacement, insert_after: insert_after)
-      end
-
-      def insertion?
-        !insert_before.empty? || !insert_after.empty? || (replacement && !replacement.empty?)
       end
 
       # Assumes range.contains?(action.range) && action.children.empty?

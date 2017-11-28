@@ -3,7 +3,8 @@ module Parser
   ##
   # {Parser::Rewriter} offers a basic API that makes it easy to rewrite
   # existing ASTs. It's built on top of {Parser::AST::Processor} and
-  # {Parser::Source::Rewriter}.
+  # {Parser::Source::TreeRewriter} (or Parser::Source::Rewriter when
+  # using the legacy API)
   #
   # For example, assume you want to remove `do` tokens from a while statement.
   # You can do this as following:
@@ -27,12 +28,10 @@ module Parser
   #
   #     buffer        = Parser::Source::Buffer.new('(example)')
   #     buffer.source = code
-  #     parser        = Parser::CurrentRuby.new
-  #     ast           = parser.parse(buffer)
   #     rewriter      = RemoveDo.new
   #
   #     # Rewrite the AST, returns a String with the new form.
-  #     puts rewriter.rewrite(buffer, ast)
+  #     puts rewriter.rewrite(buffer)
   #
   # This would result in the following Ruby code:
   #
@@ -54,16 +53,41 @@ module Parser
     # version.
     #
     # @param [Parser::Source::Buffer] source_buffer
-    # @param [Parser::AST::Node] ast
+    # @param [Parser::AST::Node] ast (defaults to buffer parsed with CurrentRuby)
+    # @param [Symbol] crossing_deletions:, different_replacements:, swallowed_insertions:
+    #                 policy arguments for TreeRewriter (optional)
     # @return [String]
     #
-    def rewrite(source_buffer, ast)
-      @source_rewriter = Source::Rewriter.new(source_buffer)
+    def rewrite(source_buffer,
+                ast: Parser::CurrentRuby.new.parser(source_buffer),
+                rewriting_class: Source::TreeRewriter,
+                **policy)
+      # We can't simply use `**policy` because of https://bugs.ruby-lang.org/issues/10856
+      args = [policy] unless policy.empty?
+      @source_rewriter = rewriting_class.new(source_buffer, *args)
 
       process(ast)
 
       @source_rewriter.process
     end
+
+    module LegacyRewriter
+      DEPRECATION_WARNING = [
+        'Parser::Rewriter#rewrite(my_buffer, my_ast) uses the deprecated Parser::Source::Rewriter.',
+        'Please use the new API Parser::Rewriter#rewrite(buffer, ast: ast) which',
+        'uses Parser::Source::TreeRewriter instead'
+      ].join("\n").freeze
+
+      # This adds support for the legacy `rewrite(buffer, ast)`
+      def rewrite(source_buffer, *args, **rest)
+        return super if args.empty?
+        raise ArgumentError, "wrong number of arguments (given 2, expected 1)" unless rest.empty?
+        warn DEPRECATION_WARNING
+        Source::Rewriter.warned_of_deprecation = true
+        super(source_buffer, ast: args.first, rewriting_class: Source::Rewriter)
+      end
+    end
+    prepend LegacyRewriter
 
     ##
     # Returns `true` if the specified node is an assignment node, returns false

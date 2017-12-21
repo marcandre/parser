@@ -72,6 +72,7 @@ module Parser
   require 'parser/base'
 
   require 'parser/rewriter'
+  require 'parser/tree_rewriter'
 
   ##
   # Verify that the current Ruby implementation supports Encoding.

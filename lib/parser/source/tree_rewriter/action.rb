@@ -69,7 +69,7 @@ module Parser
       end
 
       def place_in_hierarchy(action)
-        family = @children.group_by { |child| child.relationship_with(action) }
+        family = analyse_hierarchy(action)
 
         if family[:fusible]
           fuse_deletions(action, family[:fusible], [*family[:sibbling], *family[:child]])
@@ -98,6 +98,10 @@ module Parser
         fused_range = [action, *fusible].map(&:range).inject(:join)
         fused_deletion = action.with(range: fused_range)
         without_fusible.do_combine(fused_deletion)
+      end
+
+      def analyse_hierarchy(action)
+        @children.group_by { |child| child.relationship_with(action) }
       end
 
       # Returns what relationship self should have with `action`; either of

@@ -75,7 +75,7 @@ module Parser
           fuse_deletions(action, family[:fusible], [*family[:sibbling_left], *family[:child], *family[:sibbling_right]])
         else
           extra_sibbling = if family[:parent]  # action should be a descendant of one of the children
-            family[:parent][0].do_combine(action)
+            family[:parent].do_combine(action)
           elsif family[:child]                 # or it should become the parent of some of the children,
             action.with(children: family[:child], enforcer: @enforcer)
               .combine_children(action.children)
@@ -106,28 +106,61 @@ module Parser
       #   :child (in case `action` strictly contains some of our children)
       #   :fusible (in case `action` overlaps some children but they can be fused in one deletion)
       #   or raises a CloberingError
-      # In case a child has equal range to `action`, it is returned in :parent
-      # Note that the range ]1, 1[ is considered disjoint from ]1, 10[
+      # In case a child has equal range to `action`, it is returned as `:parent`
+      # Reminder: the empty range ]1, 1[ is considered disjoint from ]1, 10[
       def analyse_hierarchy(action)
-        @children.group_by { |child| child.relationship_with(action) }
+        r = action.range
+        # left_index is the index of the first child that isn't disjoint and on the left of action
+        left_index = @children.bsearch_index { |child| child.range.end_pos > r.begin_pos } || @children.size
+        # right_index is the index of the first child that is disjoint and on the right of action
+        right_index = @children.bsearch_index { |child| child.range.begin_pos >= r.end_pos } || @children.size
+        non_disjoint = right_index - left_index
+        case non_disjoint
+        when 0
+          # All children are disjoint from action, nothing else to do
+        when -1
+          # Corner case: if a child has empty range == action's range
+          # then it will appear to be both disjoint and to the left of action,
+          # as well as disjoint and to the right of action.
+          # Since ranges are equal, we return it as parent
+          left_index -= 1  # Fix indices, as we don't want to consider this
+          right_index += 1 # case as a sibbling.
+          parent = @children[left_index]
+        else
+          overlap_left = @children[left_index].range.begin_pos <=> r.begin_pos
+          overlap_right = @children[right_index-1].range.end_pos <=> r.end_pos
+
+          # For one child to be the parent of action, we must have:
+          if non_disjoint == 1 && overlap_left <= 0 && overlap_right >= 0
+            parent = @children[left_index]
+          else
+            # Otherwise consider all non disjoint to be contained...
+            contained = @children[left_index...right_index]
+            fusible = check_fusible(action,
+              (contained.shift if overlap_left < 0),  # ... but check first and last one
+              (contained.pop if overlap_right > 0)    # ... for overlaps
+            )
+          end
+        end
+
+        {
+          parent: parent,
+          sibbling_left: @children[0...left_index],
+          sibbling_right: @children[right_index...@children.size],
+          fusible: fusible,
+          child: contained,
+        }
       end
 
-      # Returns what relationship self should have with `action`; either of
-      #   :sibbling_left, :sibbling_right :parent, :child, :fusible or raises a CloberingError
-      # In case of equal range, returns :parent
-      def relationship_with(action)
-        if action.range == @range || @range.contains?(action.range)
-          :parent
-        elsif @range.contained?(action.range)
-          :child
-        elsif @range.disjoint?(action.range)
-          @range.begin_pos < action.range.begin_pos ? :sibbling_left : :sibbling_right
-        elsif !action.insertion? && !insertion?
-          @enforcer.call(:crossing_deletions) { {range: action.range, conflict: @range} }
-          :fusible
-        else
-          @enforcer.call(:crossing_insertions) { {range: action.range, conflict: @range} }
+      # @param [Array(Action | nil)] fusible
+      def check_fusible(action, *fusible)
+        fusible.compact!
+        return if fusible.empty?
+        fusible.each do |child|
+          kind = action.insertion? || child.insertion? ? :crossing_insertions : :crossing_deletions
+          @enforcer.call(kind) { {range: action.range, conflict: child.range} }
         end
+        fusible
       end
 
       # Assumes action.range == range && action.children.empty?

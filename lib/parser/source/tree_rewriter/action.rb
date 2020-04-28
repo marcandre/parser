@@ -7,7 +7,7 @@ module Parser
     #
     # Actions are arranged in a tree and get combined so that:
     #   children are strictly contained by their parent
-    #   sibblings all disjoint from one another
+    #   sibblings all disjoint from one another and ordered
     #   only actions with replacement==nil may have children
     #
     class TreeRewriter::Action
@@ -41,7 +41,7 @@ module Parser
         reps = []
         reps << [@range.begin, @insert_before] unless @insert_before.empty?
         reps << [@range, @replacement] if @replacement
-        reps.concat(@children.sort_by(&:range).flat_map(&:ordered_replacements))
+        reps.concat(@children.flat_map(&:ordered_replacements))
         reps << [@range.end, @insert_after] unless @insert_after.empty?
         reps
       end
@@ -72,7 +72,7 @@ module Parser
         family = analyse_hierarchy(action)
 
         if family[:fusible]
-          fuse_deletions(action, family[:fusible], [*family[:sibbling], *family[:child]])
+          fuse_deletions(action, family[:fusible], [*family[:sibbling_left], *family[:child], *family[:sibbling_right]])
         else
           extra_sibbling = if family[:parent]  # action should be a descendant of one of the children
             family[:parent][0].do_combine(action)
@@ -82,7 +82,7 @@ module Parser
           else                                 # or else it should become an additional child
             action
           end
-          with(children: [*family[:sibbling], extra_sibbling])
+          with(children: [*family[:sibbling_left], extra_sibbling, *family[:sibbling_right]])
         end
       end
 
@@ -100,12 +100,20 @@ module Parser
         without_fusible.do_combine(fused_deletion)
       end
 
+      # Returns the children in a hierarchy with respect to `action`:
+      #   :sibbling_left, sibbling_right (for those that are disjoint from action)
+      #   :parent (in case one of our children contains `action`)
+      #   :child (in case `action` strictly contains some of our children)
+      #   :fusible (in case `action` overlaps some children but they can be fused in one deletion)
+      #   or raises a CloberingError
+      # In case a child has equal range to `action`, it is returned in :parent
+      # Note that the range ]1, 1[ is considered disjoint from ]1, 10[
       def analyse_hierarchy(action)
         @children.group_by { |child| child.relationship_with(action) }
       end
 
       # Returns what relationship self should have with `action`; either of
-      #   :sibbling, :parent, :child, :fusible or raises a CloberingError
+      #   :sibbling_left, :sibbling_right :parent, :child, :fusible or raises a CloberingError
       # In case of equal range, returns :parent
       def relationship_with(action)
         if action.range == @range || @range.contains?(action.range)
@@ -113,7 +121,7 @@ module Parser
         elsif @range.contained?(action.range)
           :child
         elsif @range.disjoint?(action.range)
-          :sibbling
+          @range.begin_pos < action.range.begin_pos ? :sibbling_left : :sibbling_right
         elsif !action.insertion? && !insertion?
           @enforcer.call(:crossing_deletions) { {range: action.range, conflict: @range} }
           :fusible
